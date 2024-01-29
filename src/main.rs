@@ -1,6 +1,9 @@
 #![no_std]
 #![no_main]
 
+mod gpios;
+mod commands;
+
 use defmt::*;
 use embassy_executor::Spawner;
 use embassy_rp::peripherals::{I2C0, I2C1, PIN_22};
