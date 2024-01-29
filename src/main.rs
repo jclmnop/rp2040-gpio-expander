@@ -41,7 +41,7 @@ async fn main(spawner: Spawner) {
 
 #[embassy_executor::task]
 async fn i2c_task(mut device: i2c_slave::I2cSlave<'static, I2C0>) {
-    let mut io_state = 0b0000_0000;
+    let mut io_state = 0b0000_1111;
     let mut matrix_state = 0b0000_1111;
 
     loop {
@@ -50,6 +50,12 @@ async fn i2c_task(mut device: i2c_slave::I2cSlave<'static, I2C0>) {
             Ok(cmd) => {
                 LED.signal(());
                 match cmd {
+                    i2c_slave::Command::Read => {
+                        info!("Read");
+                        if let Err(e) = device.respond_to_read(&[io_state]).await {
+                            error!("Error: {:?}", e);
+                        }
+                    }
                     cmd => {
                         info!("Command: {:?}", cmd);
                     }
