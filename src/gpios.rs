@@ -1,7 +1,5 @@
 //! TODO: might be more efficient to use DMA but this is easier for now
-
 use embassy_rp::gpio::{Flex, Pin};
-use defmt::*;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -22,6 +20,8 @@ impl PinMask {
     }
 }
 
+//TODO: wait for any_edge using select
+/// Groups 8 pins together so that they can be read from, and written to, as a single byte
 pub struct PinGroup<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> {
     p0: Flex<'static, P0>,
     p1: Flex<'static, P1>,
@@ -34,9 +34,11 @@ pub struct PinGroup<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pi
     pin_modes: u8,
 }
 
-impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> PinGroup<P0, P1, P2, P3, P4, P5, P6, P7> {
+impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
+    PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+{
     pub fn new(p0: P0, p1: P1, p2: P2, p3: P3, p4: P4, p5: P5, p6: P6, p7: P7) -> Self {
-        Self {
+        let mut this = Self {
             p0: Flex::new(p0),
             p1: Flex::new(p1),
             p2: Flex::new(p2),
@@ -46,7 +48,9 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
             p6: Flex::new(p6),
             p7: Flex::new(p7),
             pin_modes: 0,
-        }
+        };
+        this.set_pin_modes(0); // Initially set all pins to input mode
+        this
     }
 
     pub fn set_pin_modes(&mut self, bits: u8) {
@@ -59,6 +63,10 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
         self.set_pin_mode(bits, &PinMask::P6);
         self.set_pin_mode(bits, &PinMask::P7);
         self.pin_modes = bits;
+    }
+
+    pub fn get_pin_modes(&self) -> &u8 {
+        &self.pin_modes
     }
 
     pub fn set_pin_mode(&mut self, bits: u8, pin_mask: &PinMask) {
@@ -98,13 +106,13 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
     pub fn is_pin_output(&self, pin_mask: &PinMask) -> bool {
         self.pin_modes & pin_mask.to_u8() == pin_mask.to_u8()
     }
-    
+
     pub fn write_pin(&mut self, pin_mask: &PinMask, high: bool) {
         if self.is_pin_output(pin_mask) {
             self.write_output_pin(pin_mask, high);
         }
     }
-    
+
     fn write_output_pin(&mut self, pin_mask: &PinMask, high: bool) {
         if high {
             match pin_mask {
@@ -128,13 +136,12 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
                 PinMask::P6 => self.p6.set_low(),
                 PinMask::P7 => self.p7.set_low(),
             }
-        
         }
     }
-    
+
     pub fn read_pins(&self) -> u8 {
         let mut result = 0;
-        
+
         if self.read_pin(&PinMask::P0) {
             result |= PinMask::P0.to_u8();
         }
@@ -159,10 +166,10 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
         if self.read_pin(&PinMask::P7) {
             result |= PinMask::P7.to_u8();
         }
-        
+
         result
     }
-    
+
     pub fn read_pin(&self, pin_mask: &PinMask) -> bool {
         if self.is_pin_output(pin_mask) {
             self.read_output_pin(pin_mask)
@@ -170,7 +177,7 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
             self.read_input_pin(pin_mask)
         }
     }
-    
+
     fn read_output_pin(&self, pin_mask: &PinMask) -> bool {
         match pin_mask {
             PinMask::P0 => self.p0.is_set_high(),
@@ -183,7 +190,7 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
             PinMask::P7 => self.p7.is_set_high(),
         }
     }
-    
+
     fn read_input_pin(&self, pin_mask: &PinMask) -> bool {
         match pin_mask {
             PinMask::P0 => self.p0.is_high(),
@@ -194,6 +201,33 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> Pin
             PinMask::P5 => self.p5.is_high(),
             PinMask::P6 => self.p6.is_high(),
             PinMask::P7 => self.p7.is_high(),
+        }
+    }
+}
+
+pub mod interrupts {
+    use super::*;
+    use embassy_futures::select::{select, select4};
+
+    impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
+        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+    {
+        pub async fn wait_for_any_edge(&mut self) {
+            select(
+                select4(
+                    self.p0.wait_for_any_edge(),
+                    self.p1.wait_for_any_edge(),
+                    self.p2.wait_for_any_edge(),
+                    self.p3.wait_for_any_edge(),
+                ),
+                select4(
+                    self.p4.wait_for_any_edge(),
+                    self.p5.wait_for_any_edge(),
+                    self.p6.wait_for_any_edge(),
+                    self.p7.wait_for_any_edge(),
+                ),
+            )
+            .await;
         }
     }
 }
