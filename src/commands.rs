@@ -1,8 +1,9 @@
 use byte::ctx::Endian;
 use byte::{BytesExt, TryRead};
-use defmt::error;
+use defmt::{error, Format};
+use embedded_error_chain::prelude::*;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Format)]
 #[repr(u8)]
 pub enum GpioCommand {
     ReadIoModes,
@@ -36,5 +37,30 @@ impl<'a> TryRead<'a, Endian> for GpioCommand {
         }?;
 
         Ok((command, offset))
+    }
+}
+
+impl GpioCommand {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Error> {
+        let (command, _) = Self::try_read(bytes, Endian::default()).map_err(Error::from)?;
+        Ok(command)
+    }
+}
+
+#[derive(Clone, Copy, Format, ErrorCategory)]
+#[repr(u8)]
+pub enum Error {
+    BadOffset,
+    BadInput,
+    Incomplete,
+}
+
+impl From<byte::Error> for Error {
+    fn from(e: byte::Error) -> Self {
+        match e {
+            byte::Error::BadOffset { .. } => Error::BadOffset,
+            byte::Error::BadInput { .. } => Error::BadInput,
+            byte::Error::Incomplete { .. } => Error::Incomplete,
+        }
     }
 }

@@ -1,5 +1,10 @@
 //! TODO: might be more efficient to use DMA but this is easier for now
-use embassy_rp::gpio::{Flex, Pin};
+use embassy_rp::gpio::{Flex, Pin, Pull};
+use embassy_rp::peripherals::*;
+
+pub type PinGroup0 = PinGroup<PIN_6, PIN_7, PIN_8, PIN_9, PIN_10, PIN_11, PIN_12, PIN_13>;
+
+pub type PinGroup1 = PinGroup<PIN_14, PIN_15, PIN_16, PIN_17, PIN_18, PIN_19, PIN_20, PIN_21>;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -65,8 +70,8 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
         self.pin_modes = bits;
     }
 
-    pub fn get_pin_modes(&self) -> &u8 {
-        &self.pin_modes
+    pub fn get_pin_modes(&self) -> u8 {
+        self.pin_modes
     }
 
     pub fn set_pin_mode(&mut self, bits: u8, pin_mask: &PinMask) {
@@ -101,10 +106,56 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
             PinMask::P6 => self.p6.set_as_input(),
             PinMask::P7 => self.p7.set_as_input(),
         }
+        //TODO: configurable pull up/down
+        match pin_mask {
+            PinMask::P0 => self.p0.set_pull(Pull::Up),
+            PinMask::P1 => self.p1.set_pull(Pull::Up),
+            PinMask::P2 => self.p2.set_pull(Pull::Up),
+            PinMask::P3 => self.p3.set_pull(Pull::Up),
+            PinMask::P4 => self.p4.set_pull(Pull::Up),
+            PinMask::P5 => self.p5.set_pull(Pull::Up),
+            PinMask::P6 => self.p6.set_pull(Pull::Up),
+            PinMask::P7 => self.p7.set_pull(Pull::Up),
+        }
     }
 
     pub fn is_pin_output(&self, pin_mask: &PinMask) -> bool {
         self.pin_modes & pin_mask.to_u8() == pin_mask.to_u8()
+    }
+
+    pub fn write_pins(&mut self, byte: u8) {
+        self.write_pin(
+            &PinMask::P0,
+            byte & PinMask::P0.to_u8() == PinMask::P0.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P1,
+            byte & PinMask::P1.to_u8() == PinMask::P1.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P2,
+            byte & PinMask::P2.to_u8() == PinMask::P2.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P3,
+            byte & PinMask::P3.to_u8() == PinMask::P3.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P4,
+            byte & PinMask::P4.to_u8() == PinMask::P4.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P5,
+            byte & PinMask::P5.to_u8() == PinMask::P5.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P6,
+            byte & PinMask::P6.to_u8() == PinMask::P6.to_u8(),
+        );
+        self.write_pin(
+            &PinMask::P7,
+            byte & PinMask::P7.to_u8() == PinMask::P7.to_u8(),
+        );
     }
 
     pub fn write_pin(&mut self, pin_mask: &PinMask, high: bool) {
