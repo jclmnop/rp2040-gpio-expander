@@ -33,4 +33,10 @@ fn main() {
     println!("cargo:rustc-link-arg-bins=-Tlink.x");
     println!("cargo:rustc-link-arg-bins=-Tlink-rp.x");
     println!("cargo:rustc-link-arg-bins=-Tdefmt.x");
+
+    // TODO: figure out how to apply these flags to unit tests in lib.rs also
+    println!("cargo:rustc-link-arg-tests=--nmagic");
+    println!("cargo:rustc-link-arg-tests=-Tlink.x");
+    println!("cargo:rustc-link-arg-tests=-Tlink-rp.x");
+    println!("cargo:rustc-link-arg-tests=-Tdefmt.x");
 }

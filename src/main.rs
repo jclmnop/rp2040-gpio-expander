@@ -1,13 +1,8 @@
 #![no_std]
 #![no_main]
 
-mod commands;
-mod device;
-mod gpios;
-
-use crate::device::Device;
-use crate::gpios::{PinGroup0, PinGroup1};
 use defmt::*;
+use device::Device;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::{select, Either};
 use embassy_rp::gpio::{Flex, Level, Output, Pin, Pull};
@@ -18,6 +13,8 @@ use embassy_rp::{bind_interrupts, i2c, i2c_slave, interrupt};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
+use gpios::{PinGroup0, PinGroup1};
+use rp_2040_gpio_expander::prelude::*;
 #[allow(unused_imports)]
 use {defmt_rtt as _, panic_probe as _};
 
@@ -27,7 +24,6 @@ type P_INT_OUT = PIN_26;
 const ADDRESS: u8 = 0x20;
 const DEFAULT_PIN_MODES: [u8; 2] = [0b0000_0001, 0b1111_0000];
 static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
-pub static SET_INT_OUT: Signal<CriticalSectionRawMutex, bool> = Signal::new();
 static LED: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 bind_interrupts!(struct Irqs {
