@@ -1,9 +1,8 @@
 use byte::ctx::Endian;
 use byte::{BytesExt, TryRead};
 use defmt::{error, Format};
-use embedded_error_chain::prelude::*;
 
-#[derive(Debug, Clone, Copy, Format)]
+#[derive(Debug, Clone, Copy, Format, Eq, PartialEq)]
 #[repr(u8)]
 pub enum GpioCommand {
     ReadIoModes,
@@ -47,8 +46,7 @@ impl GpioCommand {
     }
 }
 
-#[derive(Clone, Copy, Format, ErrorCategory)]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, Format, Eq, PartialEq)]
 pub enum Error {
     BadOffset,
     BadInput,

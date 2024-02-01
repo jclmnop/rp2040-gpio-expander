@@ -43,7 +43,6 @@ pio = "0.2.1"
 rand = { version = "0.8.5", default-features = false }
 
 byte = "0.2.6"
-embedded-error-chain = "1.0.0"
 
 [profile.release]
 debug = 2

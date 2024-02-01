@@ -18,7 +18,6 @@ use embassy_rp::{bind_interrupts, i2c, i2c_slave, interrupt};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
-use embedded_error_chain::ErrorCategory;
 #[allow(unused_imports)]
 use {defmt_rtt as _, panic_probe as _};
 
@@ -142,7 +141,7 @@ async fn i2c_task(mut slave: i2c_slave::I2cSlave<'static, I2C0>, mut device: Dev
                     Ok(Command::Write(len)) => {
                         info!("[MAIN_TASK] WRITE: {:?}", &write_buf[..len]);
                         if let Err(e) = device.handle_write_command(&write_buf[..len]) {
-                            error_chain(intern!("[MAIN_TASK] WRITE_ERROR"), e);
+                            error!("[MAIN_TASK] WRITE_ERROR: {:?}", e);
                         }
                     }
                     Ok(Command::WriteRead(len)) => {
@@ -150,7 +149,7 @@ async fn i2c_task(mut slave: i2c_slave::I2cSlave<'static, I2C0>, mut device: Dev
                         if let Err(e) =
                             device.handle_write_read_command(&write_buf[..len], &mut read_buf)
                         {
-                            error_chain(intern!("[MAIN_TASK] WRITE_READ_ERROR"), e);
+                            error!("[MAIN_TASK] WRITE_READ_ERROR: {:?}", e);
                         } else {
                             match slave.respond_and_fill(&read_buf, 0x00).await {
                                 Ok(read_status) => {
@@ -200,14 +199,5 @@ async fn led_task(mut led: Output<'static, PIN_22>) {
         Timer::after_millis(100).await;
         led.set_high();
         Timer::after_millis(100).await;
-    }
-}
-
-pub fn error_chain(label: defmt::Str, err: embedded_error_chain::Error<impl ErrorCategory>) {
-    error!("{=istr}", label);
-    let mut iter = err.iter();
-    error!("\tERROR CHAIN:");
-    while let Some(e) = iter.next() {
-        error!("\t\t{}", e.0);
     }
 }

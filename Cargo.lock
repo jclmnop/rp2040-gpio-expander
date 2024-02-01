@@ -466,27 +466,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embedded-error-chain"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1841bf0e1e86f79dfddfcf1a1a3d4e99e7288cd98b586177be8c304b809558b"
-dependencies = [
- "embedded-error-chain-macros",
-]
-
-[[package]]
-name = "embedded-error-chain-macros"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d251ce628872992d497f22a74ee0e0481de34e9dd46c9889c6d326c26969639f"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "embedded-hal"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,7 +1181,6 @@ dependencies = [
  "embassy-rp",
  "embassy-sync",
  "embassy-time",
- "embedded-error-chain",
  "embedded-hal 1.0.0",
  "embedded-hal-async",
  "embedded-hal-bus",

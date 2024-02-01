@@ -4,8 +4,6 @@ use crate::SET_INT_OUT;
 use defmt::{info, Format};
 use embassy_futures::select::select;
 use embassy_futures::yield_now;
-use embedded_error_chain::prelude::*;
-use embedded_error_chain::Error as ErrorChain;
 
 pub struct Device {
     pub gpio_group_0: PinGroup0,
@@ -56,8 +54,8 @@ impl Device {
 
 /// I2C functionality
 impl Device {
-    pub fn handle_write_command(&mut self, bytes: &[u8]) -> Result<(), ErrorChain<Error>> {
-        let command = GpioCommand::from_bytes(bytes).chain_err(Error::FailedToParseCmd)?;
+    pub fn handle_write_command(&mut self, bytes: &[u8]) -> Result<(), Error> {
+        let command = GpioCommand::from_bytes(bytes)?;
         info!("Command: {:?}", command);
         match command {
             GpioCommand::WriteOutputs(gpio_group_0, gpio_group_1) => {
@@ -66,7 +64,7 @@ impl Device {
             GpioCommand::SetIoModes(gpio_group_0, gpio_group_1) => {
                 Ok(self.set_pin_modes(&[gpio_group_0, gpio_group_1]))
             }
-            GpioCommand::ReadIoModes => Err(Error::InvalidWriteCmd.into()),
+            otherwise => Err(Error::InvalidWriteCmd(otherwise)),
         }
     }
 
@@ -74,11 +72,11 @@ impl Device {
         &mut self,
         bytes: &[u8],
         out: &mut [u8; 2],
-    ) -> Result<(), ErrorChain<Error>> {
-        let command = GpioCommand::from_bytes(bytes).chain_err(Error::FailedToParseCmd)?;
+    ) -> Result<(), Error> {
+        let command = GpioCommand::from_bytes(bytes)?;
         match command {
             GpioCommand::ReadIoModes => Ok(self.get_pin_modes(out)),
-            otherwise => Err(Error::InvalidWriteReadCmd.into()),
+            otherwise => Err(Error::InvalidWriteReadCmd(otherwise)),
         }
     }
 
@@ -89,11 +87,15 @@ impl Device {
 }
 
 //TODO: just replace the error chain shit with a standard enum that derives Format, Eq, PartialEq, etc
-#[derive(Clone, Copy, Format, ErrorCategory)]
-#[error_category(links(crate::commands::Error))]
-#[repr(u8)]
+#[derive(Debug, Clone, Copy, Format, Eq, PartialEq)]
 pub enum Error {
-    FailedToParseCmd,
-    InvalidWriteCmd,
-    InvalidWriteReadCmd,
+    FailedToParseCmd(crate::commands::Error),
+    InvalidWriteCmd(GpioCommand),
+    InvalidWriteReadCmd(GpioCommand),
+}
+
+impl From<crate::commands::Error> for Error {
+    fn from(err: crate::commands::Error) -> Self {
+        Self::FailedToParseCmd(err)
+    }
 }
