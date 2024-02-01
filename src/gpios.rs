@@ -20,8 +20,23 @@ pub enum PinMask {
 }
 
 impl PinMask {
+    pub const ARR: [Self; 8] = [
+        PinMask::P0,
+        PinMask::P1,
+        PinMask::P2,
+        PinMask::P3,
+        PinMask::P4,
+        PinMask::P5,
+        PinMask::P6,
+        PinMask::P7,
+    ];
+
     pub const fn to_u8(&self) -> u8 {
         *self as u8
+    }
+
+    pub const fn is_in_mask(&self, mask: u8) -> bool {
+        mask & self.to_u8() == self.to_u8()
     }
 }
 
@@ -75,7 +90,7 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
     }
 
     pub fn set_pin_mode(&mut self, bits: u8, pin_mask: &PinMask) {
-        if bits & pin_mask.to_u8() == pin_mask.to_u8() {
+        if pin_mask.is_in_mask(bits) {
             self.set_pin_output(pin_mask);
         } else {
             self.set_pin_input(pin_mask);
@@ -124,38 +139,9 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
     }
 
     pub fn write_pins(&mut self, byte: u8) {
-        self.write_pin(
-            &PinMask::P0,
-            byte & PinMask::P0.to_u8() == PinMask::P0.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P1,
-            byte & PinMask::P1.to_u8() == PinMask::P1.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P2,
-            byte & PinMask::P2.to_u8() == PinMask::P2.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P3,
-            byte & PinMask::P3.to_u8() == PinMask::P3.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P4,
-            byte & PinMask::P4.to_u8() == PinMask::P4.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P5,
-            byte & PinMask::P5.to_u8() == PinMask::P5.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P6,
-            byte & PinMask::P6.to_u8() == PinMask::P6.to_u8(),
-        );
-        self.write_pin(
-            &PinMask::P7,
-            byte & PinMask::P7.to_u8() == PinMask::P7.to_u8(),
-        );
+        for pin in PinMask::ARR.iter() {
+            self.write_pin(pin, pin.is_in_mask(byte));
+        }
     }
 
     pub fn write_pin(&mut self, pin_mask: &PinMask, high: bool) {
@@ -279,6 +265,35 @@ pub mod interrupts {
                 ),
             )
             .await;
+        }
+    }
+}
+
+pub mod pull {
+    use super::*;
+
+    impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
+        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+    {
+        pub fn set_pin_pulls(&mut self, bytes: u8, pull: Pull) {
+            for pin in PinMask::ARR.iter() {
+                if pin.is_in_mask(bytes) {
+                    self.set_pin_pull(pin, pull);
+                }
+            }
+        }
+
+        fn set_pin_pull(&mut self, pin_mask: &PinMask, pull: Pull) {
+            match pin_mask {
+                PinMask::P0 => self.p0.set_pull(pull),
+                PinMask::P1 => self.p1.set_pull(pull),
+                PinMask::P2 => self.p2.set_pull(pull),
+                PinMask::P3 => self.p3.set_pull(pull),
+                PinMask::P4 => self.p4.set_pull(pull),
+                PinMask::P5 => self.p5.set_pull(pull),
+                PinMask::P6 => self.p6.set_pull(pull),
+                PinMask::P7 => self.p7.set_pull(pull),
+            }
         }
     }
 }
