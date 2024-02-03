@@ -74,14 +74,9 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
     }
 
     pub fn set_pin_modes(&mut self, bits: u8) {
-        self.set_pin_mode(bits, &PinMask::P0);
-        self.set_pin_mode(bits, &PinMask::P1);
-        self.set_pin_mode(bits, &PinMask::P2);
-        self.set_pin_mode(bits, &PinMask::P3);
-        self.set_pin_mode(bits, &PinMask::P4);
-        self.set_pin_mode(bits, &PinMask::P5);
-        self.set_pin_mode(bits, &PinMask::P6);
-        self.set_pin_mode(bits, &PinMask::P7);
+        for pin in PinMask::ARR.iter() {
+            self.set_pin_mode(bits, pin);
+        }
         self.pin_modes = bits;
     }
 
