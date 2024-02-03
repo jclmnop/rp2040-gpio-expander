@@ -19,10 +19,10 @@ impl<'a> TryRead<'a, Endian> for GpioCommand {
         let command_byte = bytes.read_with::<u8>(&mut offset, ctx)?;
         let command = match command_byte {
             0x01 => Ok(GpioCommand::ReadIoModes),
-            otherwise => {
+            cmd_with_args => {
                 let gpio_group_1 = bytes.read_with::<u8>(&mut offset, ctx)?;
                 let gpio_group_2 = bytes.read_with::<u8>(&mut offset, ctx)?;
-                match command_byte {
+                match cmd_with_args {
                     0x02 => Ok(GpioCommand::WriteOutputs(gpio_group_1, gpio_group_2)),
                     0x03 => Ok(GpioCommand::SetIoModes(gpio_group_1, gpio_group_2)),
                     otherwise => {
