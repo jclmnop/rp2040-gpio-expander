@@ -5,7 +5,7 @@ use defmt::*;
 use device::Device;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::{select, Either};
-use embassy_rp::gpio::{Flex, Level, Output, OutputOpenDrain, Pull};
+use embassy_rp::gpio::{Level, Output, OutputOpenDrain};
 use embassy_rp::i2c_slave::Command;
 use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::{I2C0, PIN_22, PIN_26};
