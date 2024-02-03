@@ -85,7 +85,7 @@ mod tests {
         state.device.set_pin_modes(&write_buf);
         state.device.write(&write_buf);
         state.device.read(&mut read_buf);
-        // assert_eq!([255, 255], read_buf);
+        assert_eq!([255, 255], read_buf);
         state.device.get_pin_modes(&mut read_buf);
         assert_eq!(write_buf, read_buf);
 
@@ -93,7 +93,7 @@ mod tests {
             [0x03, 0b0000_0000, 0b0000_1111],
             [0x03, 0b1010_1010, 0b0101_0101],
             [0x03, 0b0101_0101, 0b0101_0101],
-            [0x03, 0b1111_1111, 0b1111_1111], // Set all pins to output at the end
+            [0x03, 0b0000_1111, 0b0000_1111], // Set half of the pins to output at the end
         ];
 
         for cmd in pin_mode_test_cases.iter() {
@@ -106,16 +106,15 @@ mod tests {
 
         // (cmd_bytes, expected_pin_states)
         let pin_state_test_cases = [
-            [0x02, 0b0000_0000, 0b0000_1111],
-            [0x02, 0b1010_1010, 0b0101_0101],
-            [0x02, 0b0101_0101, 0b0101_0101],
-            [0x02, 0b1111_1111, 0b1111_1111],
+            ([0x02, 0b0000_0000, 0b0000_1111], [0b0000_0000, 0b1111_1111]),
+            ([0x02, 0b0000_1111, 0b0000_0000], [0b1111_1111, 0b0000_0000]),
+            ([0x02, 0b1111_0000, 0b1111_0000], [0b0000_0000, 0b0000_0000]),
         ];
 
-        for cmd in pin_state_test_cases.iter() {
+        for (cmd, expected_state) in pin_state_test_cases.iter() {
             unwrap!(state.device.handle_write_command(cmd));
             state.device.read(&mut read_buf);
-            assert_eq!(cmd[1..], read_buf[..]);
+            assert_eq!(expected_state, &read_buf);
         }
 
         let invalid_test_cases = [
