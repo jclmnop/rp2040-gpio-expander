@@ -5,7 +5,7 @@ use defmt::*;
 use device::Device;
 use embassy_executor::{InterruptExecutor, Spawner};
 use embassy_futures::select::{select, Either};
-use embassy_rp::gpio::{Flex, Level, Output, Pin, Pull};
+use embassy_rp::gpio::{Flex, Level, Output, OutputOpenDrain, Pull};
 use embassy_rp::i2c_slave::Command;
 use embassy_rp::interrupt::{InterruptExt, Priority};
 use embassy_rp::peripherals::{I2C0, PIN_22, PIN_26};
@@ -50,7 +50,6 @@ async fn main(spawner: Spawner) {
     let mut config = i2c_slave::Config::default();
     config.addr = ADDRESS as u16;
     let slave = i2c_slave::I2cSlave::new(peripherals.I2C0, scl, sda, Irqs, config);
-
     let gpio_group_0 = PinGroup0::new(
         peripherals.PIN_6,
         peripherals.PIN_7,
@@ -83,10 +82,7 @@ unsafe fn SWI_IRQ_0() {
 
 #[embassy_executor::task]
 async fn trigger_int_out(int_out: P_INT_OUT) {
-    let mut int_out = Flex::new(int_out);
-    int_out.set_pull(Pull::Up);
-    int_out.set_as_output();
-    int_out.set_level(false.into());
+    let mut int_out = OutputOpenDrain::new(int_out, Level::Low);
     loop {
         let level = SET_INT_OUT.wait().await;
         int_out.set_level(level.into());
