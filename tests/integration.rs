@@ -52,6 +52,10 @@ mod tests {
             ([0x01, 0, 0], GpioCommand::ReadIoModes),
             ([0x02, 3, 12], GpioCommand::WriteAllOutputs(3, 12)),
             ([0x03, 4, 255], GpioCommand::SetIoModes(4, 255)),
+            ([0x11, 1, 0], GpioCommand::WriteOutputs1(1)),
+            ([0x12, 4, 3], GpioCommand::WriteOutputs2(4)),
+            ([0x21, 255, 255], GpioCommand::ReadInputs1),
+            ([0x22, 255, 255], GpioCommand::ReadInputs2),
         ];
 
         for (input, expected) in valid_test_cases.iter() {
