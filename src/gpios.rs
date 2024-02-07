@@ -1,10 +1,13 @@
-//! TODO: might be more efficient to use DMA but this is easier for now
+use core::marker::PhantomData;
+
 use embassy_rp::gpio::{Flex, Pin, Pull};
 use embassy_rp::peripherals::*;
 
-pub type PinGroup0 = PinGroup<PIN_6, PIN_7, PIN_8, PIN_9, PIN_10, PIN_11, PIN_12, PIN_13>;
+pub type PinGroup0 =
+    PinGroup<PIN_6, PIN_7, PIN_8, PIN_9, PIN_10, PIN_11, PIN_12, PIN_13, IntOutTrigger>;
 
-pub type PinGroup1 = PinGroup<PIN_14, PIN_15, PIN_16, PIN_17, PIN_18, PIN_19, PIN_20, PIN_21>;
+pub type PinGroup1 =
+    PinGroup<PIN_14, PIN_15, PIN_16, PIN_17, PIN_18, PIN_19, PIN_20, PIN_21, IntOutNoTrigger>;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
@@ -40,9 +43,14 @@ impl PinMask {
     }
 }
 
-//TODO: wait for any_edge using select
+/// Marker for GPIO pin group that triggers the INT_OUT signal on input
+pub struct IntOutTrigger;
+/// Marker for GPIO pin group that does not trigger the INT_OUT signal on input
+pub struct IntOutNoTrigger;
+
 /// Groups 8 pins together so that they can be read from, and written to, as a single byte
-pub struct PinGroup<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin> {
+pub struct PinGroup<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin, IntOut>
+{
     p0: Flex<'static, P0>,
     p1: Flex<'static, P1>,
     p2: Flex<'static, P2>,
@@ -52,10 +60,11 @@ pub struct PinGroup<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pi
     p6: Flex<'static, P6>,
     p7: Flex<'static, P7>,
     pin_modes: u8,
+    _trigger_int_out: PhantomData<IntOut>,
 }
 
-impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
-    PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin, IntOut>
+    PinGroup<P0, P1, P2, P3, P4, P5, P6, P7, IntOut>
 {
     pub fn new(p0: P0, p1: P1, p2: P2, p3: P3, p4: P4, p5: P5, p6: P6, p7: P7) -> Self {
         let mut this = Self {
@@ -68,6 +77,7 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
             p6: Flex::new(p6),
             p7: Flex::new(p7),
             pin_modes: 0,
+            _trigger_int_out: PhantomData,
         };
         this.set_pin_modes(0); // Initially set all pins to input mode
         this
@@ -238,11 +248,13 @@ impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
 }
 
 pub mod interrupts {
+    use crate::SET_INT_OUT;
+
     use super::*;
     use embassy_futures::select::{select, select4};
 
     impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
-        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7, IntOutTrigger>
     {
         pub async fn wait_for_any_edge(&mut self) {
             select(
@@ -261,14 +273,18 @@ pub mod interrupts {
             )
             .await;
         }
+
+        pub fn clear_int_out(&self) {
+            SET_INT_OUT.signal(false);
+        }
     }
 }
 
 pub mod pull {
     use super::*;
 
-    impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin>
-        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7>
+    impl<P0: Pin, P1: Pin, P2: Pin, P3: Pin, P4: Pin, P5: Pin, P6: Pin, P7: Pin, IntOut>
+        PinGroup<P0, P1, P2, P3, P4, P5, P6, P7, IntOut>
     {
         pub fn set_pin_pulls(&mut self, bytes: u8, pull: Pull) {
             for pin in PinMask::ARR.iter() {

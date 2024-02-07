@@ -50,7 +50,7 @@ mod tests {
 
         let valid_test_cases = [
             ([0x01, 0, 0], GpioCommand::ReadIoModes),
-            ([0x02, 3, 12], GpioCommand::WriteOutputs(3, 12)),
+            ([0x02, 3, 12], GpioCommand::WriteAllOutputs(3, 12)),
             ([0x03, 4, 255], GpioCommand::SetIoModes(4, 255)),
         ];
 

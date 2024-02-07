@@ -6,8 +6,12 @@ use defmt::{error, Format};
 #[repr(u8)]
 pub enum GpioCommand {
     ReadIoModes,
-    WriteOutputs(u8, u8),
+    WriteAllOutputs(u8, u8),
     SetIoModes(u8, u8),
+    WriteOutputs1(u8),
+    WriteOutputs2(u8),
+    ReadInputs1,
+    ReadInputs2,
     // SetPullUps(u8, u8),
     // SetPullDowns(u8, u8),
     // SetPullNone(u8, u8),
@@ -19,19 +23,40 @@ impl<'a> TryRead<'a, Endian> for GpioCommand {
         let command_byte = bytes.read_with::<u8>(&mut offset, ctx)?;
         let command = match command_byte {
             0x01 => Ok(GpioCommand::ReadIoModes),
-            cmd_with_args => {
+            cmd_with_args if cmd_with_args < 0x11 => {
                 let gpio_group_1 = bytes.read_with::<u8>(&mut offset, ctx)?;
                 let gpio_group_2 = bytes.read_with::<u8>(&mut offset, ctx)?;
                 match cmd_with_args {
-                    0x02 => Ok(GpioCommand::WriteOutputs(gpio_group_1, gpio_group_2)),
+                    0x02 => Ok(GpioCommand::WriteAllOutputs(gpio_group_1, gpio_group_2)),
                     0x03 => Ok(GpioCommand::SetIoModes(gpio_group_1, gpio_group_2)),
                     otherwise => {
-                        error!("Invalid command byte: {:x}", otherwise);
+                        error!("Invalid command byte with 2 args: {:x}", otherwise);
                         Err(byte::Error::BadInput {
                             err: "Invalid command byte",
                         })
                     }
                 }
+            }
+            cmd_with_arg if cmd_with_arg < 0x21 => {
+                let gpio_group = bytes.read_with::<u8>(&mut offset, ctx)?;
+                match cmd_with_arg {
+                    0x11 => Ok(GpioCommand::WriteOutputs1(gpio_group)),
+                    0x12 => Ok(GpioCommand::WriteOutputs2(gpio_group)),
+                    otherwise => {
+                        error!("Invalid command byte with 1 arg: {:x}", otherwise);
+                        Err(byte::Error::BadInput {
+                            err: "Invalid command byte",
+                        })
+                    }
+                }
+            }
+            0x21 => Ok(GpioCommand::ReadInputs1),
+            0x22 => Ok(GpioCommand::ReadInputs2),
+            otherwise => {
+                error!("Invalid command byte: {:x}", otherwise);
+                Err(byte::Error::BadInput {
+                    err: "Invalid command byte",
+                })
             }
         }?;
 

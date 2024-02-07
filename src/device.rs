@@ -2,8 +2,7 @@ use crate::commands::GpioCommand;
 use crate::gpios::{PinGroup0, PinGroup1};
 use crate::SET_INT_OUT;
 use defmt::{info, Format};
-use embassy_futures::select::select;
-use embassy_futures::yield_now;
+// use embassy_futures::yield_now;
 
 pub struct Device {
     pub gpio_group_0: PinGroup0,
@@ -42,11 +41,7 @@ impl Device {
     }
 
     pub async fn wait_for_any_edge(&mut self) {
-        select(
-            self.gpio_group_0.wait_for_any_edge(),
-            self.gpio_group_1.wait_for_any_edge(),
-        )
-        .await;
+        self.gpio_group_0.wait_for_any_edge().await;
         SET_INT_OUT.signal(true);
         // yield_now().await;
     }
@@ -58,7 +53,7 @@ impl Device {
         let command = GpioCommand::from_bytes(bytes)?;
         info!("Command: {:?}", command);
         match command {
-            GpioCommand::WriteOutputs(gpio_group_0, gpio_group_1) => {
+            GpioCommand::WriteAllOutputs(gpio_group_0, gpio_group_1) => {
                 Ok(self.write(&[gpio_group_0, gpio_group_1]))
             }
             GpioCommand::SetIoModes(gpio_group_0, gpio_group_1) => {
@@ -76,6 +71,15 @@ impl Device {
         let command = GpioCommand::from_bytes(bytes)?;
         match command {
             GpioCommand::ReadIoModes => Ok(self.get_pin_modes(out)),
+            GpioCommand::ReadInputs1 => {
+                out[0] = self.gpio_group_0.read_pins();
+                self.gpio_group_0.clear_int_out();
+                Ok(())
+            }
+            GpioCommand::ReadInputs2 => {
+                out[0] = self.gpio_group_1.read_pins();
+                Ok(())
+            }
             otherwise => Err(Error::InvalidWriteReadCmd(otherwise)),
         }
     }
@@ -86,7 +90,6 @@ impl Device {
     }
 }
 
-//TODO: just replace the error chain shit with a standard enum that derives Format, Eq, PartialEq, etc
 #[derive(Debug, Clone, Copy, Format, Eq, PartialEq)]
 pub enum Error {
     FailedToParseCmd(crate::commands::Error),
