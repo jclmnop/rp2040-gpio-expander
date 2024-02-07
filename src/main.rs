@@ -3,36 +3,39 @@
 
 use defmt::*;
 use device::Device;
-use embassy_executor::{InterruptExecutor, Spawner};
+use embassy_executor::{Executor, InterruptExecutor};
 use embassy_futures::select::{select, Either};
 use embassy_rp::gpio::{Level, Output, OutputOpenDrain};
 use embassy_rp::i2c_slave::Command;
 use embassy_rp::interrupt::{InterruptExt, Priority};
-use embassy_rp::peripherals::{I2C0, PIN_22, PIN_26};
+use embassy_rp::peripherals::{I2C0, PIN_25, PIN_26};
 use embassy_rp::{bind_interrupts, i2c, i2c_slave, interrupt};
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::signal::Signal;
 use embassy_time::Timer;
 use gpios::{PinGroup0, PinGroup1};
 use rp_2040_gpio_expander::prelude::*;
+use static_cell::StaticCell;
 #[allow(unused_imports)]
 use {defmt_rtt as _, panic_probe as _};
 
 #[allow(non_camel_case_types)]
 type P_INT_OUT = PIN_26;
+#[allow(non_camel_case_types)]
+type P_LED = PIN_25;
 
 const ADDRESS: u8 = 0x20;
 const DEFAULT_PIN_MODES: [u8; 2] = [0b0000_0001, 0b1111_0000];
 static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
+static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 static LED: Signal<CriticalSectionRawMutex, ()> = Signal::new();
 
 bind_interrupts!(struct Irqs {
     I2C0_IRQ => i2c::InterruptHandler<I2C0>;
 });
 
-//TODO: try without main macro to make sure multiprio executors are working properly
-#[embassy_executor::main]
-async fn main(spawner: Spawner) {
+#[cortex_m_rt::entry]
+fn main() -> ! {
     let peripherals = embassy_rp::init(Default::default());
 
     let int_out: P_INT_OUT = peripherals.PIN_26;
@@ -40,9 +43,8 @@ async fn main(spawner: Spawner) {
     let high_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_0);
     unwrap!(high_spawner.spawn(trigger_int_out(int_out)));
 
-    let led = Output::new(peripherals.PIN_22, Level::Low);
-
-    unwrap!(spawner.spawn(led_task(led)));
+    let executor = EXECUTOR.init(Executor::new());
+    let led = Output::new(peripherals.PIN_25, Level::Low);
 
     let sda = peripherals.PIN_4;
     let scl = peripherals.PIN_5;
@@ -72,7 +74,10 @@ async fn main(spawner: Spawner) {
     );
     let device = Device::new(gpio_group_0, gpio_group_1);
 
-    unwrap!(spawner.spawn(i2c_task(slave, device)));
+    executor.run(|spawner| {
+        unwrap!(spawner.spawn(led_task(led)));
+        unwrap!(spawner.spawn(i2c_task(slave, device)));
+    })
 }
 
 #[interrupt]
@@ -183,7 +188,7 @@ async fn i2c_task(mut slave: i2c_slave::I2cSlave<'static, I2C0>, mut device: Dev
 }
 
 #[embassy_executor::task]
-async fn led_task(mut led: Output<'static, PIN_22>) {
+async fn led_task(mut led: Output<'static, P_LED>) {
     led.set_high();
     loop {
         LED.wait().await;
