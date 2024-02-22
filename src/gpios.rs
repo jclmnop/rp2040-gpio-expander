@@ -3,8 +3,18 @@ use core::marker::PhantomData;
 use embassy_rp::gpio::{Flex, Pin, Pull};
 use embassy_rp::peripherals::*;
 
-pub type PinGroup0 =
-    PinGroup<PIN_6, PIN_7, PIN_8, PIN_9, PIN_10, PIN_11, PIN_12, PIN_13, IntOutTrigger>;
+pub type PinGroup0 = PinGroup<
+    PIN_6,
+    // PIN_3, // Replace PIN_6 with PIN_3 because i shorted it
+    PIN_7,
+    PIN_8,
+    PIN_9,
+    PIN_10,
+    PIN_11,
+    PIN_12,
+    PIN_13,
+    IntOutTrigger,
+>;
 
 pub type PinGroup1 =
     PinGroup<PIN_14, PIN_15, PIN_16, PIN_17, PIN_18, PIN_19, PIN_20, PIN_21, IntOutNoTrigger>;

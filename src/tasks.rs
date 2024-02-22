@@ -20,7 +20,7 @@ pub async fn trigger_int_out(int_out: P_INT_OUT) -> ! {
     let mut int_out = OutputOpenDrain::new(int_out, Level::Low);
     loop {
         let level = SET_INT_OUT.wait().await;
-        int_out.set_level(level.into());
+        int_out.set_level((!level).into());
         info!("[INT_OUT] LEVEL: {}", level);
     }
 }
@@ -37,11 +37,13 @@ pub async fn i2c_task(mut slave: i2c_slave::I2cSlave<'static, I2C0>, mut device:
     // info!("[MAIN_TASK] GPIO_STATE: {=[u8;2]:08b}", &read_buf);
     loop {
         write_buf.fill(0);
-        // read_buf.fill(0);
         device.read(&mut read_buf);
         info!("[MAIN_TASK] GPIO_STATE: {=[u8;2]:08b}", &read_buf);
+        read_buf.fill(0);
         match select(device.wait_for_any_edge(), slave.listen(&mut write_buf)).await {
             Either::First(_) => {
+                //TODO: move back to wait_for_any_edge()?
+                SET_INT_OUT.signal(true);
                 // device.read(&mut read_buf);
                 // info!("[MAIN_TASK] GPIO_STATE: {=[u8;2]:08b}", &read_buf);
             }
@@ -72,18 +74,23 @@ pub async fn i2c_task(mut slave: i2c_slave::I2cSlave<'static, I2C0>, mut device:
                     }
                     Ok(Command::WriteRead(len)) => {
                         info!("[MAIN_TASK] WRITE_READ: {:?}", &write_buf[..len]);
-                        if let Err(e) =
-                            device.handle_write_read_command(&write_buf[..len], &mut read_buf)
-                        {
-                            error!("[MAIN_TASK] WRITE_READ_ERROR: {:?}", e);
-                        } else {
-                            match slave.respond_and_fill(&read_buf, 0x00).await {
-                                Ok(read_status) => {
-                                    info!("[MAIN_TASK] WRITE_READ_RESPONSE: {:?}", &read_buf);
-                                    info!("[MAIN_TASK] WRITE_READ_STATUS: {:?}", read_status);
-                                }
-                                Err(e) => {
-                                    error!("[MAIN_TASK] WRITE_READ_RESPONSE: {}", e);
+                        match device.handle_write_read_command(&write_buf[..len], &mut read_buf) {
+                            Err(e) => {
+                                error!("[MAIN_TASK] WRITE_READ_ERROR: {:?}", e);
+                            }
+                            Ok(out_len) => {
+                                match slave.respond_and_fill(&read_buf[..out_len], 0x00).await {
+                                    // TODO: fix
+                                    Ok(read_status) => {
+                                        info!(
+                                            "[MAIN_TASK] WRITE_READ_RESPONSE: {:?}",
+                                            &read_buf[..out_len]
+                                        );
+                                        info!("[MAIN_TASK] WRITE_READ_STATUS: {:?}", read_status);
+                                    }
+                                    Err(e) => {
+                                        error!("[MAIN_TASK] WRITE_READ_RESPONSE: {}", e);
+                                    }
                                 }
                             }
                         }

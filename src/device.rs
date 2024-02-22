@@ -30,6 +30,14 @@ impl Device {
         self.gpio_group_1.write_pins(bytes[1]);
     }
 
+    pub fn write1(&mut self, byte: u8) {
+        self.gpio_group_0.write_pins(byte);
+    }
+
+    pub fn write2(&mut self, byte: u8) {
+        self.gpio_group_1.write_pins(byte);
+    }
+
     pub fn set_pin_modes(&mut self, bytes: &[u8; 2]) {
         self.gpio_group_0.set_pin_modes(bytes[0]);
         self.gpio_group_1.set_pin_modes(bytes[1]);
@@ -42,7 +50,8 @@ impl Device {
 
     pub async fn wait_for_any_edge(&mut self) {
         self.gpio_group_0.wait_for_any_edge().await;
-        SET_INT_OUT.signal(true);
+        info!("INTERRUPT!");
+        // SET_INT_OUT.signal(true);
         // yield_now().await;
     }
 }
@@ -59,6 +68,8 @@ impl Device {
             GpioCommand::SetIoModes(gpio_group_0, gpio_group_1) => {
                 Ok(self.set_pin_modes(&[gpio_group_0, gpio_group_1]))
             }
+            GpioCommand::WriteOutputs1(gpio_group_1) => Ok(self.write1(gpio_group_1)),
+            GpioCommand::WriteOutputs2(gpio_group_2) => Ok(self.write2(gpio_group_2)),
             otherwise => Err(Error::InvalidWriteCmd(otherwise)),
         }
     }
@@ -67,18 +78,21 @@ impl Device {
         &mut self,
         bytes: &[u8],
         out: &mut [u8; 2],
-    ) -> Result<(), Error> {
+    ) -> Result<usize, Error> {
         let command = GpioCommand::from_bytes(bytes)?;
         match command {
-            GpioCommand::ReadIoModes => Ok(self.get_pin_modes(out)),
+            GpioCommand::ReadIoModes => {
+                self.get_pin_modes(out);
+                Ok(2)
+            }
             GpioCommand::ReadInputs1 => {
                 out[0] = self.gpio_group_0.read_pins();
                 self.gpio_group_0.clear_int_out();
-                Ok(())
+                Ok(1)
             }
             GpioCommand::ReadInputs2 => {
                 out[0] = self.gpio_group_1.read_pins();
-                Ok(())
+                Ok(1)
             }
             otherwise => Err(Error::InvalidWriteReadCmd(otherwise)),
         }

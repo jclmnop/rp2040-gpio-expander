@@ -25,7 +25,7 @@ pub type P_LED = PIN_25;
 pub type P_EN_OUT = PIN_2;
 
 pub const ADDRESS: u8 = 0x20;
-pub const DEFAULT_PIN_MODES: [u8; 2] = [0b0000_0001, 0b1111_0000];
+pub const DEFAULT_PIN_MODES: [u8; 2] = [0b0000_0000, 0b1111_0000];
 pub static EXECUTOR_HIGH: InterruptExecutor = InterruptExecutor::new();
 pub static EXECUTOR: StaticCell<Executor> = StaticCell::new();
 pub static LED: Signal<CriticalSectionRawMutex, ()> = Signal::new();
