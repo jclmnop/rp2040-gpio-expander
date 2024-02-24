@@ -12,9 +12,9 @@ pub enum GpioCommand {
     WriteOutputs2(u8) = 0x12,
     ReadInputs1 = 0x21,
     ReadInputs2 = 0x22,
-    // SetPullUps(u8, u8),
-    // SetPullDowns(u8, u8),
-    // SetPullNone(u8, u8),
+    SetPullDowns(u8, u8) = 0x30,
+    SetPullUps(u8, u8) = 0x31,
+    SetPullNone(u8, u8) = 0x32,
 }
 
 impl GpioCommand {
@@ -30,7 +30,10 @@ impl<'a> TryRead<'a, Endian> for GpioCommand {
         let command_byte = bytes.read_with::<u8>(&mut offset, ctx)?;
         let command = match command_byte {
             cmd if cmd == Self::ReadIoModes.discriminant() => Ok(Self::ReadIoModes),
-            cmd_with_args if cmd_with_args < Self::WriteOutputs1(0).discriminant() => {
+            cmd_with_args
+                if cmd_with_args < Self::WriteOutputs1(0).discriminant()
+                    || cmd_with_args >= Self::SetPullDowns(0, 0).discriminant() =>
+            {
                 let gpio_group_1 = bytes.read_with::<u8>(&mut offset, ctx)?;
                 let gpio_group_2 = bytes.read_with::<u8>(&mut offset, ctx)?;
                 match cmd_with_args {
@@ -39,6 +42,15 @@ impl<'a> TryRead<'a, Endian> for GpioCommand {
                     }
                     cmd if cmd == Self::SetIoModes(0, 0).discriminant() => {
                         Ok(Self::SetIoModes(gpio_group_1, gpio_group_2))
+                    }
+                    cmd if cmd == Self::SetPullDowns(0, 0).discriminant() => {
+                        Ok(Self::SetPullDowns(gpio_group_1, gpio_group_2))
+                    }
+                    cmd if cmd == Self::SetPullUps(0, 0).discriminant() => {
+                        Ok(Self::SetPullUps(gpio_group_1, gpio_group_2))
+                    }
+                    cmd if cmd == Self::SetPullNone(0, 0).discriminant() => {
+                        Ok(Self::SetPullNone(gpio_group_1, gpio_group_2))
                     }
                     otherwise => {
                         error!("Invalid command byte with 2 args: {:x}", otherwise);

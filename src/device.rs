@@ -2,6 +2,7 @@ use crate::commands::GpioCommand;
 use crate::gpios::{PinGroup0, PinGroup1};
 use crate::SET_INT_OUT;
 use defmt::{info, Format};
+use embassy_rp::gpio::Pull;
 // use embassy_futures::yield_now;
 
 pub struct Device {
@@ -48,6 +49,11 @@ impl Device {
         out[1] = self.gpio_group_1.get_pin_modes();
     }
 
+    pub fn set_pin_pulls(&mut self, bytes: &[u8; 2], pull: Pull) {
+        self.gpio_group_0.set_pin_pulls(bytes[0], pull);
+        self.gpio_group_1.set_pin_pulls(bytes[1], pull);
+    }
+
     pub async fn wait_for_any_edge(&mut self) {
         self.gpio_group_0.wait_for_any_edge().await;
         info!("INTERRUPT!");
@@ -70,6 +76,15 @@ impl Device {
             }
             GpioCommand::WriteOutputs1(gpio_group_1) => Ok(self.write1(gpio_group_1)),
             GpioCommand::WriteOutputs2(gpio_group_2) => Ok(self.write2(gpio_group_2)),
+            GpioCommand::SetPullDowns(gpio_group1, gpio_group_2) => {
+                Ok(self.set_pin_pulls(&[gpio_group1, gpio_group_2], Pull::Down))
+            }
+            GpioCommand::SetPullUps(gpio_group1, gpio_group_2) => {
+                Ok(self.set_pin_pulls(&[gpio_group1, gpio_group_2], Pull::Up))
+            }
+            GpioCommand::SetPullNone(gpio_group1, gpio_group_2) => {
+                Ok(self.set_pin_pulls(&[gpio_group1, gpio_group_2], Pull::None))
+            }
             otherwise => Err(Error::InvalidWriteCmd(otherwise)),
         }
     }

@@ -24,14 +24,16 @@ bind_interrupts!(struct Irqs {
 fn main() -> ! {
     let peripherals = embassy_rp::init(Default::default());
 
+    // interrupt::I2C0_IRQ.set_priority(Priority::P1);
     interrupt::SWI_IRQ_0.set_priority(Priority::P2);
+
     let high_spawner = EXECUTOR_HIGH.start(interrupt::SWI_IRQ_0);
 
     let en_out: P_EN_OUT = peripherals.PIN_2;
     unwrap!(high_spawner.spawn(tasks::trigger_en_out(en_out)));
 
-    let int_out: P_INT_OUT = peripherals.PIN_26;
-    unwrap!(high_spawner.spawn(tasks::trigger_int_out(int_out)));
+    // let int_out: P_INT_OUT = peripherals.PIN_26;
+    // unwrap!(high_spawner.spawn(tasks::trigger_int_out(int_out)));
 
     let executor = EXECUTOR.init(Executor::new());
     let led = Output::new(peripherals.PIN_25, Level::Low);
@@ -63,9 +65,11 @@ fn main() -> ! {
         peripherals.PIN_21,
     );
     let device = Device::new(gpio_group_0, gpio_group_1);
+    let int_out: P_INT_OUT = peripherals.PIN_26;
 
     executor.run(|spawner| {
         unwrap!(spawner.spawn(tasks::led_task(led)));
         unwrap!(spawner.spawn(tasks::i2c_task(slave, device)));
+        unwrap!(spawner.spawn(tasks::trigger_int_out(int_out)));
     })
 }
